@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="terrier-4.1-test">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Downloads/terrier-core-4.1-ant/terrier-4.1/lib/terrier-4.1-test.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
