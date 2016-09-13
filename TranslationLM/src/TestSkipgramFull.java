@@ -29,9 +29,18 @@ public class TestSkipgramFull {
 		System.out.println("args[5]: path to cbow vectors");
 		System.out.println("args[6]: number of top translation terms");
 		System.out.println("args[7]: value of mu");
+		System.out.println("args[8]: threshold on similarity value");
 		
 		int numtopterms = Integer.parseInt(args[6]);
 		double mu = Double.parseDouble(args[7]);
+		
+		double similarityThreshold = 0;
+		if(args.length > 8)
+		{
+			//Optional parameter
+			similarityThreshold = Double.parseDouble(args[8]);
+		}
+		
 		System.out.println("numtopterms set to " + numtopterms);
 		System.setProperty("terrier.home", args[0]);
 		Index index = Index.createIndex(args[1], "data");
@@ -45,6 +54,7 @@ public class TestSkipgramFull {
 		tlm_w2v_skipgram.setTopthreshold(index.getCollectionStatistics().getNumberOfDocuments()/2);
 		tlm_w2v_skipgram.setDirMu(mu);
 		tlm_w2v_skipgram.setNumber_of_top_translation_terms(numtopterms);
+		tlm_w2v_skipgram.setSimilarityThreshold(similarityThreshold);
 		//tlm_w2v_skipgram.setRarethreshold(10);
 		//tlm_w2v_skipgram.setTopthreshold(index.getCollectionStatistics().getNumberOfDocuments());
 		//System.out.println("Translation thresholds: Lower=" + index.getCollectionStatistics().getNumberOfDocuments()/200 + "\t Upper=" + index.getCollectionStatistics().getNumberOfDocuments()/2);
