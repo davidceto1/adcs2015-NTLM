@@ -39,12 +39,13 @@ public class CleanAP {
 
 			
 			StringBuilder docString = new StringBuilder();
-			while ((line = br.readLine()) != null) {
-
+			while ((line = br.readLine()) != null) 
+			{
 				if(line.startsWith("<DOC>") || line.startsWith("<DOCNO>") || line.contains("<FILEID>") || line.contains("<FIRST>") || line.contains("<SECOND>")
 						|| line.contains("<HEAD>") || line.contains("<HEADLINE>") || line.contains("<BYLINE>") || line.contains("</BYLINE>") 
 						|| line.contains("<DATELINE>") || line.contains("<HEAD>") || line.contains("</HEAD>")
-						|| line.startsWith("</DOC>") || line.equalsIgnoreCase("\n")){
+						|| line.startsWith("</DOC>") || line.equalsIgnoreCase("\n"))
+				{
 					//ignore
 					continue;
 				}
@@ -53,10 +54,24 @@ public class CleanAP {
 				tmp = tmp.replace("&equals;", "");
 				tmp = tmp.toLowerCase();
 				tmp = tmp.replaceAll("\\d",""); //removes digits
-				tmp = tmp.replaceAll("\\p{Punct}", " "); //removes punctuation
+				tmp = tmp.replaceAll("(?!\\.)\\p{Punct}", " "); //removes all punctuation but points
 				tmp = tmp.replaceAll("\\s+", " "); //removes multiple spaces
+				
 				if(!tmp.isEmpty())
-					docString.append(tmp + "\n");
+				{
+					if(tmp.endsWith(".") || tmp.endsWith(". "))
+					{
+						tmp = tmp.replaceAll("\\.", "");	
+						docString.append(tmp + "\n");
+					}
+					else
+					{ 
+						tmp = tmp.replaceAll("\\.", "");
+						docString.append(tmp + " ");
+					}
+				}
+					
+				
 			}
 			String text = docString.toString();
 			if(!text.isEmpty())
