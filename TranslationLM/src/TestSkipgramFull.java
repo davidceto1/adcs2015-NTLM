@@ -94,7 +94,8 @@ public class TestSkipgramFull {
 			Request rq_w2v = new Request();
 			rq_w2v.setOriginalQuery(query);
 			rq_w2v.setQueryID(qid);
-			rq_w2v = tlm_w2v_skipgram.runMatching(rq_w2v, "w2v_full", "dir");
+			//rq_w2v = tlm_w2v_skipgram.runMatching(rq_w2v, "w2v_full", "dir");
+			rq_w2v = tlm_w2v_skipgram.runMatching(rq_w2v, "w2v_full_SUM", "dir");
 			TRECoutput_w2v_skipgram.printResults(pt_w2v_skipgram, rq_w2v, "dir_w2v_skipgram_full", "Q0", 1000);
 			
 		}

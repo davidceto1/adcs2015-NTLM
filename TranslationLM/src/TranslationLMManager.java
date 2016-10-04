@@ -1309,6 +1309,119 @@ public class TranslationLMManager extends Manager{
 		this.rs.initialise(log_p_d_q);
 	}
 	
+	/** Performs retrieval with a Dirichlet smoothing translation language model, where the translation probability is estimated using word2vec
+	 * 
+	 * This version performs the translation at query time
+	 * 
+	 * Results are saved in the ResultSet of the object
+	 * 
+	 * @throws IOException if a problem occurs during matching
+	 * @throws InterruptedException 
+	 */
+	public void dir_t_w2v_SUM() throws IOException, InterruptedException {
+		double[] log_p_d_q = new double[this.index.getCollectionStatistics().getNumberOfDocuments()];
+		Arrays.fill(log_p_d_q, -1000.0);
+
+		PostingIndex<?> di = index.getDirectIndex();
+		DocumentIndex doi = index.getDocumentIndex();
+		
+		double c = this.mu;
+		double numberOfTokens = (double) this.index.getCollectionStatistics().getNumberOfTokens();
+		
+		double[] vector_q = get_empty_sentence_vector();
+		
+		//Create a query vector with the sum of all query terms
+		double avg_colltermFrequency_w = 0.0;
+		for(int i=0; i<this.queryTerms.length;i++) 
+		{
+			System.out.println(this.queryTerms[i]);
+			String w = this.queryTerms[i];
+			LexiconEntry lEntry = this.lex.getLexiconEntry(w);
+			if (lEntry==null)
+			{
+				System.err.println("Term Not Found: "+this.queryTerms[i]);
+				continue;
+			}
+			//IterablePosting ip = this.invertedIndex.getPostings(lEntry);
+	
+			System.out.println("\t Getting vector for " + w + "\t(cf=" + lEntry.getFrequency() + "; docf=" + lEntry.getDocumentFrequency());
+			if(lEntry.getFrequency()<this.rarethreshold || lEntry.getDocumentFrequency()<this.rarethreshold 
+					|| lEntry.getDocumentFrequency()>this.topthreshold || w.matches(".*\\d+.*"))
+				System.out.println("Term " + w + " matches the conditions for not beeing considered by w2v (cf, docf<" + this.rarethreshold + " || docf>" + this.topthreshold+ ")");
+			avg_colltermFrequency_w = avg_colltermFrequency_w + (double)lEntry.getFrequency() /(double)this.queryTerms.length ;
+			double[] vector_w = fullw2vmatrix.get(w);
+			if(vector_w!=null){
+				for(int j=0; j<vector_w.length;j++) 
+				{
+					vector_q[j] += vector_w[j];
+				}
+			}else{
+				System.out.println("There is no vector for "+ w);
+			}
+			
+			
+		}
+			
+			//HashMap<String, Double> top_translations_of_w = getTopW2VTranslations_atquerytime_notnormalised(w); 
+			HashMap<String, Double> top_translations_of_w = null;
+			
+			if(this.number_of_top_translation_terms == 0)
+			{
+				//If the number of top translation_terms is 0, means that is going to select the terms using the similarity threshold
+				//top_translations_of_w = getThresholdW2VTranslations_atquerytime(w);
+				top_translations_of_w = getThresholdW2VTranslations_atquerytime_notnormalised(vector_q);
+			}
+			else
+			{
+				top_translations_of_w = getTopW2VTranslations_atquerytime(vector_q);
+			}
+			
+			HashMap<Integer, Double> dacc = new HashMap<Integer, Double>();
+
+			for(String u : top_translations_of_w.keySet()) {
+				LexiconEntry lu = this.lex.getLexiconEntry( u );
+				IterablePosting postings = this.invertedIndex.getPostings((BitIndexPointer) lu);
+				while (postings.next() != IterablePosting.EOL) {
+					int doc = postings.getId();					
+					double p_u_d = (double)postings.getFrequency()/(double)postings.getDocumentLength();
+					double p_w_u = top_translations_of_w.get(u);
+					/*FOR ANALYSIS ONLY*/
+					/*if(u.equalsIgnoreCase("dollar"))
+						p_w_u=0;*/
+					/*END OF ANALYSIS CODE*/
+
+					double sums_p_u_d_p_w_u = 0.0;
+					if(dacc.containsKey(doc))
+						sums_p_u_d_p_w_u = dacc.get(doc);
+					sums_p_u_d_p_w_u = sums_p_u_d_p_w_u + p_u_d * p_w_u;
+					dacc.put(doc, sums_p_u_d_p_w_u);
+				}
+			}
+			
+			
+			//Iterate through all the docs to score
+			for(int doc : dacc.keySet()) {
+				double sums_p_u_d_p_w_u = dacc.get(doc);
+				IterablePosting postings = di.getPostings(doi.getDocumentEntry(doc));
+				double docLength = (double) postings.getDocumentLength();
+				
+				double score =	
+						WeightingModelLibrary.log( (docLength* sums_p_u_d_p_w_u + c * (avg_colltermFrequency_w/numberOfTokens)) / (c + docLength)) 
+						- WeightingModelLibrary.log( c/( c+ docLength) * (avg_colltermFrequency_w/numberOfTokens) ) 
+						+ WeightingModelLibrary.log(c/(c + docLength))
+						;
+				if(log_p_d_q[doc]==-1000.0)
+					log_p_d_q[doc]=0.0;
+
+				log_p_d_q[doc] = log_p_d_q[doc] +  score;
+				
+			}
+			
+		//now need to put the scores into the result set
+		this.rs.initialise(log_p_d_q);
+
+		
+	}
 	
 	/** Performs retrieval with a Dirichlet smoothing translation language model, where the translation probability is estimated using word2vec
 	 * 
@@ -1330,7 +1443,8 @@ public class TranslationLMManager extends Manager{
 		double numberOfTokens = (double) this.index.getCollectionStatistics().getNumberOfTokens();
 		
 		//iterating over all query terms
-		for(int i=0; i<this.queryTerms.length;i++) {
+		for(int i=0; i<this.queryTerms.length;i++) 
+		{
 			System.out.println(this.queryTerms[i]);
 			String w = this.queryTerms[i];
 			LexiconEntry lEntry = this.lex.getLexiconEntry(w);
@@ -1360,6 +1474,8 @@ public class TranslationLMManager extends Manager{
 			{
 				top_translations_of_w = getTopW2VTranslations_atquerytime(w);
 			}
+			
+			//if
 			
 			System.out.println("\t" + top_translations_of_w.size() + " Translations for " + w + " acquired");
 			
@@ -2022,6 +2138,9 @@ public class TranslationLMManager extends Manager{
         case "w2v_full":
         	dir_t_w2v_full();
             break; 
+        case "w2v_full_sum":
+        	dir_t_w2v_SUM();
+            break;
         default: 
         	dir();
         	System.err.println("No translation explicitely set!");
@@ -2814,6 +2933,72 @@ public class TranslationLMManager extends Manager{
 		return tmp_w_top_cooccurence;
 	}
 	
+	@SuppressWarnings("unchecked")
+	public HashMap<String, Double> getTopW2VTranslations_atquerytime(double[] vector_w) {
+		TreeMultimap<Double, String> inverted_translation_w = TreeMultimap.create(Ordering.natural().reverse(), Ordering.natural());
+		HashMap<String, Double> w_top_cooccurence = new HashMap<String, Double>();
+
+			HashMap<String,Double> tmp_w = new HashMap<String,Double>();
+			double sum_cosines=0.0;
+			for(String u : fullw2vmatrix.keySet()) {
+				double[] vector_u = fullw2vmatrix.get(u);
+				double cosine_w_u=0.0;
+				double sum_w=0.0;
+				double sum_u=0.0;
+				for(int i=0; i<vector_w.length;i++) {
+					cosine_w_u=cosine_w_u + vector_w[i]*vector_u[i];
+					sum_w=sum_w + Math.pow(vector_w[i],2);
+					sum_u=sum_u + Math.pow(vector_u[i],2);
+				}
+				//System.out.println("Un-normalised cosine: " + cosine_w_u);
+				//normalisation step
+				cosine_w_u = cosine_w_u / (Math.sqrt(sum_w) * Math.sqrt(sum_u));
+				//System.out.println("normalised cosine: " + cosine_w_u);
+				tmp_w.put(u, cosine_w_u);
+				sum_cosines = sum_cosines+ cosine_w_u;
+			}
+			//normalise to probabilities and insert in order
+			for(String u: tmp_w.keySet()) {
+				double p_w2v_w_u = tmp_w.get(u)/sum_cosines;
+				inverted_translation_w.put(p_w2v_w_u, u);
+			}
+
+		//TreeMultimap<Double, String> inverted_translation_w = w2v_inverted_translation.get(w);
+
+		int count =0;
+
+		double sums_u=0.0;
+		for (Double p_w_u : inverted_translation_w.keySet()) {
+			if(count<this.number_of_top_translation_terms) {
+				NavigableSet<String> terms = inverted_translation_w.get(p_w_u);
+				Iterator<String> termit = terms.iterator();
+				while(termit.hasNext()) {
+					String topterm = termit.next();
+					if(count<this.number_of_top_translation_terms) {
+						w_top_cooccurence.put(topterm, p_w_u);
+						sums_u=sums_u + p_w_u;
+						count ++;
+					}else
+						break;
+				}
+			}else
+				break;
+		}
+
+		//normalised based on u
+		HashMap<String, Double> tmp_w_top_cooccurence = new HashMap<String, Double>();
+		int tcount=0;
+		double cumsum=0.0;
+		for(String u: w_top_cooccurence.keySet()) {
+			tmp_w_top_cooccurence.put(u, w_top_cooccurence.get(u)/sums_u);
+			System.out.println("\t  " + w_top_cooccurence.get(u)/sums_u + ": " + u);
+			cumsum=cumsum+w_top_cooccurence.get(u)/sums_u;
+			tcount++;
+		}
+		System.out.println(tcount + " translations selected, for a cumulative sum of " + cumsum);
+		return tmp_w_top_cooccurence;
+	}
+	
 	public HashMap<String, Double> getThresholdW2VTranslations_atquerytime(String w) {
 		TreeMultimap<Double, String> inverted_translation_w = TreeMultimap.create(Ordering.natural().reverse(), Ordering.natural());
 		HashMap<String, Double> w_top_cooccurence = new HashMap<String, Double>();
@@ -3077,6 +3262,77 @@ public class TranslationLMManager extends Manager{
 		return tmp_w_top_cooccurence;
 	}
 	
+	public HashMap<String, Double> getThresholdW2VTranslations_atquerytime_notnormalised(double[] vector_w) 
+	{
+		TreeMultimap<Double, String> inverted_translation_w = TreeMultimap.create(Ordering.natural().reverse(), Ordering.natural());
+		HashMap<String, Double> w_top_cooccurence = new HashMap<String, Double>();
+
+		HashMap<String,Double> tmp_w = new HashMap<String,Double>();
+		double sum_cosines=0.0;
+		for(String u : fullw2vmatrix.keySet()) {
+			double[] vector_u = fullw2vmatrix.get(u);
+			double cosine_w_u=0.0;
+			double sum_w=0.0;
+			double sum_u=0.0;
+			for(int i=0; i<vector_w.length;i++) {
+				cosine_w_u=cosine_w_u + vector_w[i]*vector_u[i];
+				sum_w=sum_w + Math.pow(vector_w[i],2);
+				sum_u=sum_u + Math.pow(vector_u[i],2);
+			}
+			//System.out.println("Un-normalised cosine: " + cosine_w_u);
+			//normalisation step
+			cosine_w_u = cosine_w_u / (Math.sqrt(sum_w) * Math.sqrt(sum_u));
+			//System.out.println("normalised cosine: " + cosine_w_u);
+			//tmp_w.put(u, cosine_w_u);
+			inverted_translation_w.put(cosine_w_u, u);
+			//sum_cosines = sum_cosines+ cosine_w_u;
+		}
+		//normalise to probabilities and insert in order
+		/*for(String u: tmp_w.keySet()) {
+			double p_w2v_w_u = tmp_w.get(u)/sum_cosines;
+			
+		}*/
+		//w2v_inverted_translation.put(w, inverted_translation_w);
+		
+
+		//System.out.println("\tWord2Vec translations " + w);
+		//TreeMultimap<Double, String> inverted_translation_w = w2v_inverted_translation.get(w);
+
+		int count =0;
+
+		double sums_u=0.0;
+		System.out.println("Selected top translations (threshold based):");
+		for (Double p_w_u : inverted_translation_w.keySet()) {
+			if(p_w_u> this.similarityThreshold) {
+				NavigableSet<String> terms = inverted_translation_w.get(p_w_u);
+				Iterator<String> termit = terms.iterator();
+				while(termit.hasNext()) {
+					String topterm = termit.next();
+					if(p_w_u>this.similarityThreshold) {
+						w_top_cooccurence.put(topterm, p_w_u);
+						System.out.println("\t" + topterm + " p=" + p_w_u);
+						sums_u=sums_u + p_w_u;
+						count ++;
+					}else
+						break;
+				}
+			}else
+				break;
+		}
+
+		//normalised based on u
+		HashMap<String, Double> tmp_w_top_cooccurence = new HashMap<String, Double>();
+		int tcount=0;
+		double cumsum=0.0;
+		for(String u: w_top_cooccurence.keySet()) {
+			tmp_w_top_cooccurence.put(u, w_top_cooccurence.get(u)/sums_u);
+			System.out.println("\t  " + w_top_cooccurence.get(u)/sums_u + ": " + u);
+			cumsum=cumsum+w_top_cooccurence.get(u)/sums_u;
+			tcount++;
+		}
+		System.out.println(tcount + " translations selected, for a cumulative sum of " + cumsum);
+		return tmp_w_top_cooccurence;
+	}
 	
 	public void compute_mi_window() throws FileNotFoundException, IOException{
 		HashMap<String, HashMap<String, Double>> translations = new HashMap<String, HashMap<String, Double>>();
