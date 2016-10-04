@@ -40,7 +40,7 @@ public class CleanWSJ {
 		BufferedReader br = new BufferedReader(new FileReader(file));
 		String line;
 
-		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + "/" + file.getName().replace(".xml", "_cleaned.txt"))));
+		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath)));
 
 		StringBuilder docString = new StringBuilder();
 		while ((line = br.readLine()) != null) {
@@ -51,24 +51,49 @@ public class CleanWSJ {
 				//ignore
 				continue;
 			}
-			if(line.startsWith("<HL>")) {
+			if(line.startsWith("<HL>")) 
+			{
 				String tmp= line.replace("<HL>", "");
 				tmp=tmp.replace("</HL>", "");
 				tmp = tmp.toLowerCase();
 				tmp = tmp.replaceAll("\\d",""); //removes digits
-				tmp = tmp.replaceAll("\\p{Punct}", " "); //removes punctuation
+				tmp = tmp.replaceAll("(?!\\.)\\p{Punct}", " "); //removes all punctuation but points
 				tmp = tmp.replaceAll("\\s+", " "); //removes multiple spaces
 				if(!tmp.isEmpty())
-					docString.append(tmp + "\n");
-			}else {
+				{
+					if(tmp.endsWith(".") || tmp.endsWith(". "))
+					{
+						tmp = tmp.replaceAll("\\.", "");	
+						docString.append(tmp + "\n");
+					}
+					else
+					{ 
+						tmp = tmp.replaceAll("\\.", "");
+						docString.append(tmp + " ");
+					}
+				}
+			}
+			else 
+			{
 				//can only be text
 				String tmp= line.toLowerCase();
 				tmp= tmp.replace("<HL>", "");
 				tmp = tmp.replaceAll("\\d",""); //removes digits
-				tmp = tmp.replaceAll("\\p{Punct}", " "); //removes punctuation
+				tmp = tmp.replaceAll("(?!\\.)\\p{Punct}", " "); //removes all punctuation but points
 				tmp = tmp.replaceAll("\\s+", " "); //removes multiple spaces
 				if(!tmp.isEmpty())
-					docString.append(tmp + "\n");
+				{
+					if(tmp.endsWith(".") || tmp.endsWith(". "))
+					{
+						tmp = tmp.replaceAll("\\.", "");	
+						docString.append(tmp + "\n");
+					}
+					else
+					{ 
+						tmp = tmp.replaceAll("\\.", "");
+						docString.append(tmp + " ");
+					}
+				}
 			}
 		}
 		String text = docString.toString();
