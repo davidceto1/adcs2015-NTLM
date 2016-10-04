@@ -27,18 +27,25 @@ public class TestSkipgramFull {
 		System.out.println("args[3]: path to result file (including name of result file)");
 		System.out.println("args[4]: path to skipgram vectors");
 		System.out.println("args[5]: path to cbow vectors");
-		System.out.println("args[6]: number of top translation terms");
+		System.out.println("args[6]: number of top translation terms, 0 to select threshold on similarity value");
 		System.out.println("args[7]: value of mu");
 		System.out.println("args[8]: threshold on similarity value");
+		System.out.println("args[9]: \"_SUM\" if the query should be summed in one vector, empty otherwise");
 		
 		int numtopterms = Integer.parseInt(args[6]);
 		double mu = Double.parseDouble(args[7]);
 		
 		double similarityThreshold = 0;
+		//indicates if the query terms should be summed in one vector
+		String sum = "";
+		//Optional parameters
 		if(args.length > 8)
 		{
-			//Optional parameter
 			similarityThreshold = Double.parseDouble(args[8]);
+		}
+		if(args.length > 9)
+		{
+			sum = args[9];
 		}
 		
 		System.out.println("numtopterms set to " + numtopterms);
@@ -95,7 +102,7 @@ public class TestSkipgramFull {
 			rq_w2v.setOriginalQuery(query);
 			rq_w2v.setQueryID(qid);
 			//rq_w2v = tlm_w2v_skipgram.runMatching(rq_w2v, "w2v_full", "dir");
-			rq_w2v = tlm_w2v_skipgram.runMatching(rq_w2v, "w2v_full_SUM", "dir");
+			rq_w2v = tlm_w2v_skipgram.runMatching(rq_w2v, "w2v_full"+sum, "dir");
 			TRECoutput_w2v_skipgram.printResults(pt_w2v_skipgram, rq_w2v, "dir_w2v_skipgram_full", "Q0", 1000);
 			
 		}
