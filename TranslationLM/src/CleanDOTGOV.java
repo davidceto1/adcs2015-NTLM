@@ -57,7 +57,7 @@ public class CleanDOTGOV {
  	 				BufferedReader br = new BufferedReader(new InputStreamReader(gzip));
  	 				String line;
  	 				
- 	 				BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath + "/" + subfolder.getName() + "_" +  file.getName().replace("gz", "txt")), "utf-8"));
+ 	 				BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputPath), "utf-8"));
  	 				
  	 				boolean ignore=false;
  	 				String html="";
@@ -80,8 +80,14 @@ public class CleanDOTGOV {
  	 						    }
  	 						}
  	 						String text = docString.toString();
- 	 						if(!text.isEmpty())
- 	 							writer.write(text + "\n");
+							if(!text.isEmpty())
+							{
+								text = text.replaceAll("\\d",""); //removes digits
+								text = text.replaceAll("(?!\\.)\\p{Punct}", " "); //removes all punctuation but points
+								text = text.replaceAll("\\s+", " "); //removes multiple spaces
+								text = text.replaceAll("\\.", "");
+								writer.write(text + "\n");
+							}
  	 						continue;
  	 					}
  	 					
